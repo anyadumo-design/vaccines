@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Доказовий Протокол Вакцинації (Україна)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #0f172a; }
+        .tab-active { border-bottom: 2px solid #2563eb; color: #2563eb; font-weight: 600; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .chart-container { position: relative; width: 100%; max-width: 800px; margin-left: auto; margin-right: auto; height: 400px; max-height: 50vh; }
+        @media (max-width: 768px) { .chart-container { height: 300px; } }
+
+        .vaccine-card { transition: all 0.2s ease-in-out; cursor: pointer; border: 1px solid #e2e8f0; border-left: 4px solid transparent; }
+        .vaccine-card:hover { background-color: #f1f5f9; }
+        .vaccine-card.active { border-color: #cbd5e1; background-color: #eff6ff; border-left: 4px solid #2563eb; }
+
+        .timeline-item { position: relative; padding-left: 1.5rem; border-left: 2px solid #cbd5e1; padding-bottom: 1rem; }
+        .timeline-item::before { content: ''; position: absolute; left: -5px; top: 0.25rem; width: 8px; height: 8px; border-radius: 50%; background-color: #3b82f6; }
+        .timeline-item:last-child { border-left-color: transparent; }
+
+        .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col">
+
+<header class="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+            <div class="flex items-center">
+                <span class="text-2xl mr-2">&#128218;</span>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-800 tracking-tight">Доказова Вакцинація</h1>
+                    <p class="text-xs text-slate-500 font-mono">Оновлено: Квітень 2026</p>
+                </div>
+            </div>
+        </div>
+        <nav class="flex overflow-x-auto custom-scrollbar hide-scrollbar" id="main-nav">
+            <button onclick="switchTab('explorer')" class="tab-btn tab-active px-4 py-3 text-sm font-medium text-slate-600 hover:text-blue-600 whitespace-nowrap transition-colors" data-target="explorer">Енциклопедія та Ціни</button>
+            <button onclick="switchTab('plan')" class="tab-btn px-4 py-3 text-sm font-medium text-slate-600 hover:text-blue-600 whitespace-nowrap transition-colors" data-target="plan">Мій План</button>
+            <button onclick="switchTab('stats')" class="tab-btn px-4 py-3 text-sm font-medium text-slate-600 hover:text-blue-600 whitespace-nowrap transition-colors" data-target="stats">Аналіз Ризиків</button>
+            <button onclick="switchTab('rules')" class="tab-btn px-4 py-3 text-sm font-medium text-slate-600 hover:text-blue-600 whitespace-nowrap transition-colors" data-target="rules">Правила / Міфи / Словник</button>
+            <button onclick="switchTab('book')" class="tab-btn px-4 py-3 text-sm font-medium text-slate-600 hover:text-blue-600 whitespace-nowrap transition-colors" data-target="book">Аналіз Критики (Сірі)</button>
+        </nav>
+    </div>
+</header>
+
+<main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+
+    <!-- TAB 1: EXPLORER -->
+    <section id="section-explorer" class="view-section block animate-fade-in">
+        <div class="mb-6 flex flex-col md:flex-row md:justify-between md:items-end gap-4">
+            <div>
+                <h2 class="text-2xl font-bold text-slate-800 mb-2">Детальне досьє на основі доказів (11 вакцин)</h2>
+                <p class="text-slate-600 max-w-3xl text-sm">
+                    Медичні дані, протоколи catch-up та актуальні ціни в клініках України (квітень 2026).
+                </p>
+            </div>
+            <div class="bg-slate-100 p-1 rounded-lg inline-flex">
+                <select id="categoryFilter" onchange="renderVaccineList()" class="bg-white border border-slate-300 text-slate-700 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 p-2 cursor-pointer outline-none">
+                    <option value="all">Всі вакцини (11)</option>
+                    <option value="calendar">Тільки Нацкалендар (Безоплатно)</option>
+                    <option value="recommended">Рекомендовані (Платно)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="flex flex-col lg:flex-row gap-6">
+            <div class="w-full lg:w-1/3 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-[400px] lg:h-[85vh]">
+                <div class="p-4 border-b border-slate-100">
+                    <input type="text" id="searchInput" oninput="renderVaccineList()" placeholder="Пошук за хворобою або вакциною..." class="w-full pl-3 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                </div>
+                <div class="flex-grow overflow-y-auto custom-scrollbar p-2" id="vaccineList"></div>
+            </div>
+
+            <div id="vaccineDetailWrapper" class="w-full lg:w-2/3 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col min-h-[600px] lg:h-[85vh]">
+                <div id="vaccineDetail" class="flex-grow overflow-y-auto custom-scrollbar p-4 md:p-6 bg-slate-50/30">
+                    <div class="flex items-center justify-center h-full text-slate-400 flex-col mt-10 lg:mt-20">
+                        <span class="text-4xl mb-4">&#8987;</span>
+                        <p>Завантаження бази даних...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- TAB 2: INTERACTIVE PLAN -->
+    <section id="section-plan" class="view-section hidden animate-fade-in">
+        <div class="mb-8">
+            <h2 class="text-2xl font-bold text-slate-800 mb-2">Генератор Плану Вакцинації</h2>
+            <p class="text-slate-600 max-w-3xl text-sm">
+                Введіть вік вашої дитини, щоб побачити, які щеплення актуальні зараз. Якщо ви щось пропустили — дивіться розділи "Catch-up" у досьє кожної вакцини.
+            </p>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8 max-w-2xl">
+            <label class="block text-sm font-bold text-slate-700 mb-2">Вік дитини зараз:</label>
+            <select id="ageSelector" class="w-full border border-slate-300 rounded-lg p-3 text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none mb-4">
+                <option value="0">0 - 2 місяці (Новонароджений)</option>
+                <option value="2">2 - 5 місяців</option>
+                <option value="6">6 - 11 місяців</option>
+                <option value="12">12 - 17 місяців (Рік)</option>
+                <option value="18">18 місяців - 4 роки</option>
+                <option value="72">6+ років (Школа)</option>
+            </select>
+            <button onclick="generatePlan()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                Сформувати рекомендації
+            </button>
+        </div>
+        <div id="planResult" class="hidden"></div>
+    </section>
+
+    <!-- TAB 3: RISK ANALYSIS (Chart) -->
+    <section id="section-stats" class="view-section hidden animate-fade-in">
+        <div class="mb-8">
+            <h2 class="text-2xl font-bold text-slate-800 mb-2">Порівняльний Аналіз Ризиків: Хвороба vs Вакцина</h2>
+            <p class="text-slate-600 max-w-3xl text-sm mb-4">
+                Виберіть захворювання, щоб порівняти ймовірність важких ускладнень при інфікуванні з імовірністю серйозних побічних ефектів від вакцини. <i>(Дані на 1 мільйон випадків)</i>.
+            </p>
+            <div class="bg-slate-100 p-4 rounded-lg inline-block w-full max-w-sm">
+                <select id="riskSelector" onchange="updateRiskChart(this.value)" class="w-full bg-white border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 cursor-pointer outline-none">
+                    <option value="measles">Кір (КПК)</option>
+                    <option value="diphtheria">Дифтерія (АКДП)</option>
+                    <option value="polio">Поліомієліт (ІПВ)</option>
+                    <option value="rota">Ротавірус (ЖВ)</option>
+                    <option value="hepb">Гепатит В (ВГВ)</option>
+                </select>
+            </div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <h3 id="chartTitle" class="text-lg font-bold text-slate-800 text-center mb-1">...</h3>
+            <p id="chartSubtitle" class="text-sm text-slate-500 text-center mb-4">...</p>
+            <div class="chart-container"><canvas id="riskChart"></canvas></div>
+            <div class="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                <h4 class="font-bold text-blue-800 text-sm mb-1">&#128161; Висновок (EBM)</h4>
+                <p id="chartConclusion" class="text-sm text-blue-900">...</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- TAB 4: Rules, Myths, Glossary -->
+    <section id="section-rules" class="view-section hidden animate-fade-in">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <!-- Rules -->
+            <div>
+                <h2 class="text-2xl font-bold text-slate-800 mb-4 border-b pb-2">Практичні Правила</h2>
+                <div class="space-y-4">
+                    <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-lg">
+                        <h4 class="font-bold text-emerald-800 text-sm mb-2">&#10003; Що робити</h4>
+                        <ul class="text-sm text-slate-700 list-disc pl-5 space-y-1">
+                            <li>Чекати 30 хвилин у клініці після уколу (ризик анафілаксії).</li>
+                            <li>Збивати температуру (Парацетамол/Ібупрофен) <b>за фактом</b> її появи або при сильному болю.</li>
+                            <li>Поєднувати кілька вакцин в один день (це світовий стандарт).</li>
+                        </ul>
+                    </div>
+                    <div class="bg-red-50 border border-red-200 p-4 rounded-lg">
+                        <h4 class="font-bold text-red-800 text-sm mb-2">&#10008; Що НЕ робити</h4>
+                        <ul class="text-sm text-slate-700 list-disc pl-5 space-y-1">
+                            <li>Здавати аналізи крові/сечі (ЗАК/ЗАС) здоровому малюку перед щепленням.</li>
+                            <li>Давати антигістамінні "до" і "після" для профілактики.</li>
+                            <li>Відкладати щеплення через легкий нежить без порушення загального стану.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <!-- Myths -->
+            <div>
+                <h2 class="text-2xl font-bold text-slate-800 mb-4 border-b pb-2">Спростування Міфів</h2>
+                <div class="space-y-4 text-sm text-slate-700">
+                    <div class="bg-white border border-slate-200 p-4 rounded-lg">
+                        <p class="font-bold text-slate-800 mb-1">Міф: Вакцини викликають Аутизм</p>
+                        <p>Спростовано десятками досліджень (напр. Hviid 2019, Данія, 657 тис. дітей). Аутизм має генетичну природу, а його перші ознаки просто збігаються у часі з графіком вакцинації КПК (1-2 роки).</p>
+                    </div>
+                    <div class="bg-white border border-slate-200 p-4 rounded-lg">
+                        <p class="font-bold text-slate-800 mb-1">Міф: Перевантаження імунітету</p>
+                        <p>Дитина щодня стикається з тисячами антигенів з повітря та їжі. Всі сучасні вакцини разом містять до 200 антигенів. Імунітет не здатний "перевантажитись" від вакцин.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="mb-8 border-t border-slate-200 pt-8">
+            <h2 class="text-2xl font-bold text-slate-800 mb-6">Словник Доказової Медицини</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                <div class="bg-white border border-slate-200 p-5 rounded-xl shadow-sm">
+                    <h3 class="font-bold text-blue-800 mb-3 text-base">Типи Вакцин</h3>
+                    <ul class="space-y-3 text-slate-700">
+                        <li><strong>Жива атенуйована:</strong> Ослаблений вірус. Дає сильний імунітет. Протипоказана вагітним та при імунодефіциті (КПК, Вітрянка, Ротавірус).</li>
+                        <li><strong>Інактивована:</strong> Вбитий мікроорганізм. Не може викликати хворобу фізично (Поліомієліт ІПВ, Гепатит А).</li>
+                        <li><strong>Кон'югована/Рекомбінантна:</strong> Лише фрагменти мікроба (білки). Найбільш очищені (Пневмокок, Гепатит В).</li>
+                    </ul>
+                </div>
+                <div class="bg-white border border-slate-200 p-5 rounded-xl shadow-sm">
+                    <h3 class="font-bold text-emerald-800 mb-3 text-base">Дослідження (EBM)</h3>
+                    <ul class="space-y-3 text-slate-700">
+                        <li><strong>РКД (RCT):</strong> Рандомізоване дослідження з групою контролю — золотий стандарт.</li>
+                        <li><strong>Фонова захворюваність:</strong> Частота подій БЕЗ вакцинації. Дозволяє зрозуміти, чи судоми викликані вакциною, чи просто збіглися у часі з іншою інфекцією.</li>
+                        <li><strong>Cochrane:</strong> Незалежна міжнародна організація, що робить найнадійніші метааналізи.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- TAB 5: BOOK ANALYSIS (Critical Thinking) -->
+    <section id="section-book" class="view-section hidden animate-fade-in">
+        <div class="mb-8 border-b border-slate-200 pb-4">
+            <h2 class="text-2xl font-bold text-slate-800 mb-2">Критичний Аналіз: Розбір аргументації Аарона Сірі</h2>
+            <p class="text-slate-600 max-w-3xl text-sm">
+                Мета цього розділу — не спростувати чи підтвердити "істину", а показати, як використовувати критичну літературу як інструмент мислення, спираючись на основний корпус доказової медицини (EBM).
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-1 space-y-6">
+                <div class="bg-slate-50 border border-slate-200 p-5 rounded-xl">
+                    <h3 class="font-bold text-slate-800 mb-2">Контекст автора</h3>
+                    <ul class="text-sm text-slate-700 space-y-2">
+                        <li><strong>Автор:</strong> Аарон Сірі (Aaron Siri).</li>
+                        <li><strong>Професія:</strong> Юрист (не лікар). Спеціалізується на судових позовах щодо вакцин.</li>
+                        <li><strong>Основна теза:</strong> Системи реєстрації вакцин допускають недбалість; клінічні випробування закороткі; використовується активний контроль замість плацебо.</li>
+                    </ul>
+                </div>
+                <div class="bg-blue-50 border border-blue-200 p-5 rounded-xl">
+                    <h3 class="font-bold text-blue-900 mb-2">💡 Що в книзі корисно</h3>
+                    <p class="text-sm text-blue-800">Сірі ставить правильні <b>системні запитання</b>. Він підсвічує проблеми фармаконагляду (недосконалість системи VAERS) та необхідність незалежного фінансування постмаркетингових досліджень. Це змушує батьків читати оригінальні інструкції (FDA/EMA), що завжди є плюсом.</p>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 space-y-6">
+                <div class="bg-amber-50 border border-amber-200 p-5 rounded-xl">
+                    <h3 class="font-bold text-amber-900 mb-3 text-lg">⚠️ Що спірне або однобоке (Аналіз тез)</h3>
+                    
+                    <div class="mb-4">
+                        <h4 class="font-bold text-slate-800 text-sm">Теза: "Більшість вакцин не тестувалися проти інертного плацебо (фізрозчину)".</h4>
+                        <p class="text-sm text-slate-700 mt-1"><strong class="text-amber-700">Контекст EBM:</strong> Це частково правда, але причини етичні. Якщо є вакцина від смертельного правця (стара версія), неетично в новому випробуванні колоти дітям воду, залишаючи їх без захисту. Тому нові вакцини тестують проти старих, доводячи, що вони <i>не гірші за ефективністю та кращі за безпекою</i>. Абсолютно нові класи вакцин завжди тестуються проти фізрозчину.</p>
+                    </div>
+
+                    <div class="mb-4">
+                        <h4 class="font-bold text-slate-800 text-sm">Теза: "Період спостереження у випробуваннях занадто короткий (дні/тижні)".</h4>
+                        <p class="text-sm text-slate-700 mt-1"><strong class="text-amber-700">Контекст EBM:</strong> Біологія вакцин така, що компоненти виводяться за дні. Більшість істинних побічних ефектів (анафілаксія, судоми) стаються в перші 1-42 дні. Імунна система не "прокидається" через 5 років. Для відстеження рідкісних явищ існують багаторічні постмаркетингові когортні дослідження на мільйонах людей, які Сірі часто ігнорує.</p>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-slate-800 text-sm">Помилка: "Немає дослідження = є шкода".</h4>
+                        <p class="text-sm text-slate-700 mt-1"><strong class="text-amber-700">Контекст EBM:</strong> Відсутність доказів безпеки якогось мікро-параметра не є доказом його небезпеки. Огляди Cochrane часто пишуть "докази низької якості" — це означає слабку методологію старих досліджень, а не те, що вакцина шкодить.</p>
+                    </div>
+                </div>
+
+                <div class="bg-emerald-50 border border-emerald-200 p-5 rounded-xl">
+                    <h3 class="font-bold text-emerald-900 mb-2">Практичний висновок для батьків</h3>
+                    <p class="text-sm text-emerald-800">Книгу Сірі слід використовувати як інструмент для розвитку <b>медичної пильності</b>, а не як підставу для відмови від щеплень. Найкращий захист — це вивчення звітів EMA (EPAR), оглядів Cochrane, ведення щоденника вакцинації та вибір доказового лікаря.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<script>
+    // --- MASSIVE DATA STRUCTURE (11 Vaccines) ---
+    const vaccinesData = [
+        {
+            id: 'bcg',
+            category: 'calendar',
+            name: 'БЦЖ / БЦЖ-М',
+            disease: 'Туберкульоз (тяжкі форми, менінгіт)',
+            type: 'Жива ослаблена (бактеріальна)',
+            confidence: { benefit: 'Висока (Когортні)', riskNumbers: 'Висока' },
+            coverage: {
+                status: 'Нацкалендар (Обов\'язково)',
+                state: 'Державні пологові будинки (Безоплатно)',
+                private: 'Приватні клініки (за наявності)',
+                priceRange: '800 - 1500 грн / доза',
+                totalCourse: 'Безоплатно в державному секторі (1 доза).'
+            },
+            tldr: {
+                verdict: 'Робити в пологовому',
+                why: 'Захищає від смертельного туберкульозного менінгіту у немовлят.',
+                mainRisk: 'Місцеве запалення лімфовузла (рідко).'
+            },
+            diseaseRisks: {
+                infection: 'Високий ризик в Україні (епідемія ТБ).',
+                hospitalization: 'Менінгіт потребує місяців у реанімації.',
+                complications: 'Летальність туберкульозного менінгіту у немовлят без лікування 100%.'
+            },
+            catchUp: {
+                missed: 'Звернутися до лікаря. Якщо дитині >2 міс - перед щепленням потрібна проба Манту.',
+                restart: 'Ні.',
+                intervals: 'Зазвичай це 1 доза на все життя.'
+            },
+            individualFactors: [
+                { factor: 'Вага < 2000г', impact: 'Вакцинацію відкладають або використовують полегшену БЦЖ-М.' },
+                { factor: 'Імунодефіцит у матері/дитини', impact: 'Вакцинація протипоказана.' }
+            ],
+            regionalRisk: 'В Україні епідемія туберкульозу. На відміну від країн Західної Європи, ця вакцина тут критично необхідна.',
+            herdImmunity: { percent: 'Не критично для популяції', consequence: 'Вакцина захищає лише саму вакциновану дитину від важких форм.' },
+            protectionDuration: '10-15 років (не захищає дорослих від легеневої форми).',
+            schedule: 'На 3-5 день життя в пологовому будинку.',
+            efficacy: 'До 80% від дисемінованого ТБ.',
+            brandsComparison: 'БЦЖ (стандартна) та БЦЖ-М (містить вдвічі менше антигену). У державних закладах зазвичай наявна болгарська або польська вакцина. Вибір бренду тут не є критичним.',
+            coAdmin: 'НЕ МОЖНА в один день з жодними вакцинами (крім Гепатиту В у пологовому). Інтервал 1 міс до будь-яких інших вакцин.',
+            reactionTimeline: [
+                { days: 'Місяць 1-3', normal: 'Формування пустули на плечі, яка може легенько гноїтися, заживати і знову відкриватися, формуючи рубчик.', notNormal: 'Величезний гнійник >1.5 см.' }
+            ],
+            redFlags: ['Значне збільшення лімфовузлів під пахвою або над ключицею (лімфаденіт).'],
+            contraindications: 'Тяжкий імунодефіцит, вага <2000г, гострі інфекції.',
+            sources: {
+                official: [{ text: 'WHO Position Paper: BCG (2018)', url: '#' }],
+                scientific: [{ text: 'Cochrane: BCG vaccine for preventing tuberculosis', url: '#' }],
+                pricing: [{ text: 'Прайси приватних клінік (04.2026)', url: '#' }]
+            }
+        },
+        {
+            id: 'hepb',
+            category: 'calendar',
+            name: 'Гепатит В (Моновакцина)',
+            disease: 'Гепатит В (цироз, рак печінки)',
+            type: 'Інактивована (Рекомбінантна)',
+            confidence: { benefit: 'Дуже Висока (РКД)', riskNumbers: 'Висока' },
+            coverage: {
+                status: 'Нацкалендар (Обов\'язково)',
+                state: 'Державні пологові будинки та поліклініки (Безоплатно)',
+                private: 'Приватні клініки',
+                priceRange: '600 - 1200 грн / доза',
+                totalCourse: 'Безоплатно (Нацкалендар).'
+            },
+            tldr: {
+                verdict: 'Робити в першу добу життя',
+                why: 'Запобігає хронічному гепатиту, який у немовлят у 90% випадків призводить до раку печінки.',
+                mainRisk: 'Анафілаксія (вкрай рідко, 1 на мільйон).'
+            },
+            diseaseRisks: {
+                infection: 'Передається через кров (навіть мікротравми при манікюрі чи у стоматолога в майбутньому).',
+                hospitalization: 'Гострий гепатит.',
+                complications: 'Хронізація інфекції у немовлят сягає 90% (проти 5% у дорослих).'
+            },
+            catchUp: {
+                missed: 'Почати за схемою 0-1-6 місяців.',
+                restart: 'Ні.',
+                intervals: 'Між 1 і 2 дозою: 1 міс. Між 2 і 3: 5 міс.'
+            },
+            individualFactors: [
+                { factor: 'Мати носій HBsAg', impact: 'Вакцину і специфічний імуноглобулін треба ввести в перші 12 годин життя.' }
+            ],
+            regionalRisk: 'Середній. Значна кількість носіїв вірусу в Україні.',
+            herdImmunity: { percent: '90%', consequence: 'Зниження носійства вірусу в популяції.' },
+            protectionDuration: 'Переважно пожиттєво.',
+            schedule: '1 доза в перші 24 години життя. Наступні - часто у складі Гексавакцини (в 2 і 6 міс).',
+            efficacy: '>95% захисту від інфекції.',
+            brandsComparison: 'Engerix B (GSK, Бельгія), Euvax B (LG Chem, Корея). Обидві вакцини є рекомбінантними високоочищеними білками. Різниці в безпеці чи ефективності немає.',
+            coAdmin: 'Можна з БЦЖ у пологовому.',
+            reactionTimeline: [
+                { days: 'День 0-2', normal: 'Почервоніння в місці уколу, субфебрильна температура.', notNormal: 'Висока температура >39 (рідко для цієї вакцини).' }
+            ],
+            redFlags: ['Алергічна реакція.'],
+            contraindications: 'Тяжка алергія на пекарські дріжджі (використовуються у виробництві).',
+            sources: {
+                official: [{ text: 'WHO Position Paper: Hepatitis B (2017)', url: '#' }],
+                scientific: [{ text: 'Cochrane: Hepatitis B vaccination', url: '#' }],
+                pricing: [{ text: 'Агрегатори аптек (04.2026)', url: '#' }]
+            }
+        },
+        {
+            id: 'hexavalent',
+            category: 'calendar',
+            name: 'Гексавакцина (АаКДП-ІПВ-ХІБ-ВГВ)',
+            disease: 'Кашлюк, Дифтерія, Правець, Поліомієліт, Hib, Гепатит В',
+            type: 'Інактивована (Комбінована)',
+            confidence: { benefit: 'Висока (РКД)', riskNumbers: 'Висока' },
+            coverage: {
+                status: 'Нацкалендар (Обов\'язково)',
+                state: 'Державні поліклініки (безоплатно).',
+                private: 'Приватні клініки (Бельгія/Франція).',
+                priceRange: '1800 - 2500 грн / доза',
+                totalCourse: 'Приблизно 7200 - 10000 грн за курс (4 дози) у приватній клініці.'
+            },
+            tldr: { verdict: 'Робити обов\'язково', why: 'Захищає від 6 смертельних хвороб одним уколом.', mainRisk: 'Фебрильні судоми.' },
+            diseaseRisks: { infection: 'Кашлюк заразний, правець є в ґрунті.', hospitalization: 'Кашлюк: >50% немовлят <6 міс в реанімації.', complications: 'Дифтерія: 10% летальність.' },
+            catchUp: { missed: 'Продовжити.', restart: 'НІКОЛИ не починати серію заново.', intervals: 'Між дозами 4 тижні. До бустера — 6 міс.' },
+            individualFactors: [
+                { factor: 'Недоношеність', impact: 'Строго за хронологічним віком.' },
+                { factor: 'Садочок', impact: 'Критично мати всі 4 дози від кашлюку.' }
+            ],
+            regionalRisk: 'Регулярні спалахи кашлюку в Україні. Поліомієліт — зона ризику.',
+            herdImmunity: { percent: '95%', consequence: 'При зниженні охоплення повертається кашлюк.' },
+            protectionDuration: 'Кашлюк: 5-10 років (потрібна ревакцинація).',
+            schedule: '2, 4, 6 місяців + ревакцинація у 18 міс.',
+            efficacy: '95-99% від важких форм.',
+            brandsComparison: 'Hexaxim (Sanofi), Infanrix Hexa (GSK). Обидві "золотий стандарт".',
+            coAdmin: 'Пневмокок, Ротавірус (все в один день).',
+            reactionTimeline: [{ days: 'День 0–2', normal: 'Температура до 38.5°C, набряк стегна.', notNormal: 'Безперервний плач >3 годин.' }],
+            redFlags: ['Судоми.', 'Гіпотонічний епізод.'],
+            contraindications: 'Енцефалопатія протягом 7 днів після попередньої дози.',
+            sources: { official: [{ text: 'МОЗ: Календар щеплень', url: '#' }], scientific: [{ text: 'Cochrane: Acellular vaccines', url: '#' }], pricing: [{ text: 'Прайси приватних клінік (04.2026)', url: '#' }] }
+        },
+        {
+            id: 'pcv',
+            category: 'recommended',
+            name: 'Пневмокок (PCV)',
+            disease: 'Бактеріальний менінгіт, сепсис, отит',
+            type: 'Інактивована (Кон\'югована)',
+            confidence: { benefit: 'Висока', riskNumbers: 'Висока' },
+            coverage: {
+                status: 'Рекомендована (В Україні платно)',
+                state: 'Іноді закуповується за місцеві бюджети.',
+                private: 'Приватні клініки та аптеки.',
+                priceRange: '2500 - 3200 грн / доза',
+                totalCourse: 'Приблизно 7500 - 9600 грн за курс (Схема 2+1).'
+            },
+            tldr: { verdict: 'Робити обов\'язково', why: 'Головна причина дитячих бактеріальних менінгітів.', mainRisk: 'Місцевий набряк.' },
+            diseaseRisks: { infection: 'Носійство в носоглотці до 60% дітей.', hospitalization: 'Інвазивні форми в крові.', complications: 'Летальність менінгіту до 10%, глухота.' },
+            catchUp: { missed: 'Вводити згідно з віком.', restart: 'Ні.', intervals: 'Кількість доз зменшується після 1 року.' },
+            individualFactors: [{ factor: 'Часті отити', impact: 'Знижує частоту ускладнених отитів.' }],
+            regionalRisk: 'Повсюдний. Основна причина призначення антибіотиків.',
+            herdImmunity: { percent: 'Не критично', consequence: 'Ефект кокона для бабусь.' },
+            protectionDuration: 'Довгостроковий.',
+            schedule: '2, 4 місяці + ревакцинація в 12-15 міс (Схема 2+1).',
+            efficacy: '>90% від інвазивних форм.',
+            brandsComparison: 'Prevenar 13 (13 штамів), Synflorix (10 штамів), Vaxneuvance (15 штамів). Prevenar/Vaxneuvance кращі, бо перекривають штам 19A.',
+            coAdmin: 'Гексавакцина, Ротавірус.',
+            reactionTimeline: [{ days: 'День 0–2', normal: 'Гарячка, значне ущільнення.', notNormal: 'Набряк на всю кінцівку.' }],
+            redFlags: ['Сильна алергія.'],
+            contraindications: 'Алергія на дифтерійний анатоксин.',
+            sources: { official: [{ text: 'WHO Position Paper', url: '#' }], scientific: [{ text: 'Cochrane: PCV', url: '#' }], pricing: [{ text: 'Агрегатори аптек (04.2026)', url: '#' }] }
+        },
+        {
+            id: 'rotavirus',
+            category: 'recommended',
+            name: 'Ротавірус (Краплі)',
+            disease: 'Тяжкий гастроентерит',
+            type: 'Жива атенуйована (Оральна)',
+            confidence: { benefit: 'Висока', riskNumbers: 'Висока' },
+            coverage: {
+                status: 'Рекомендована (В Україні платно)',
+                state: 'Не забезпечується державою.',
+                private: 'Доступно в клініках та аптеках.',
+                priceRange: '800 - 1200 грн / доза',
+                totalCourse: '1600 - 3600 грн (за 2 або 3 дози).'
+            },
+            tldr: { verdict: 'Робити', why: 'Вберігає від стаціонару з крапельницями.', mainRisk: 'Інвагінація кишківника (рідко).' },
+            diseaseRisks: { infection: 'Майже 100% дітей до 5 років.', hospitalization: 'Головна причина госпіталізацій немовлят.', complications: 'Гіповолемічний шок.' },
+            catchUp: { missed: 'СУВОРІ ОБМЕЖЕННЯ.', restart: 'Ні.', intervals: 'Перша доза СУВОРО ДО 15 тижнів життя.' },
+            individualFactors: [{ factor: 'Штучне вигодовування', impact: 'Вищий ризик важкого перебігу.' }],
+            regionalRisk: 'Високий. Пік — осінь-зима.',
+            herdImmunity: { percent: 'Н/Д', consequence: 'Захищає переважно саму дитину.' },
+            protectionDuration: 'На перші 2-3 роки життя.',
+            schedule: '2 і 4 місяці (для Rotarix).',
+            efficacy: '>90% від госпіталізації.',
+            brandsComparison: 'Rotarix (GSK, 2 дози), RotaTeq (MSD, 3 дози). Обидві ефективні.',
+            coAdmin: 'З будь-якими ін\'єкціями.',
+            reactionTimeline: [{ days: 'День 1–7', normal: 'Легке послаблення випорожнень.', notNormal: 'Безперервний крик, кров у калі.' }],
+            redFlags: ['Симптоми інвагінації (напади плачу з підтягуванням ніжок).'],
+            contraindications: 'Вади ШКТ, ТКІД.',
+            sources: { official: [{ text: 'WHO Position Paper', url: '#' }], scientific: [{ text: 'Cochrane: Rotavirus', url: '#' }], pricing: [{ text: 'Аптеки (04.2026)', url: '#' }] }
+        },
+        {
+            id: 'menb',
+            category: 'recommended',
+            name: 'Менінгокок B (Bexsero)',
+            disease: 'Менінгококцемія B',
+            type: 'Інактивована (Рекомбінантна)',
+            confidence: { benefit: 'Помірна (Новіша вакцина)', riskNumbers: 'Помірна' },
+            coverage: {
+                status: 'Рекомендована (Платно)',
+                state: 'Не забезпечується.',
+                private: 'Приватні клініки.',
+                priceRange: '3000 - 4500 грн / доза',
+                totalCourse: '6000 - 13500 грн (залежить від віку старту).'
+            },
+            tldr: { verdict: 'Робити (за фінансової можливості)', why: 'Хвороба блискавична (згоряють за добу).', mainRisk: 'Висока реактогенність (гарячка).' },
+            diseaseRisks: { infection: 'Рідкісна, але смертельна.', hospitalization: '100% реанімація.', complications: 'Летальність до 10-15%, ампутації.' },
+            catchUp: { missed: 'Можна починати в будь-якому віці.', restart: 'Ні.', intervals: 'Схема залежить від віку.' },
+            individualFactors: [{ factor: 'Садок/Гуртожиток', impact: 'Передається при тісному контакті.' }],
+            regionalRisk: 'Тип B — найпоширеніший в Європі.',
+            herdImmunity: { percent: 'Невідомо', consequence: 'Слабко впливає на носійство.' },
+            protectionDuration: 'Кілька років.',
+            schedule: 'Часто: 3, 5 місяців + бустер у 12-15 міс.',
+            efficacy: 'Висока проти включених штамів.',
+            brandsComparison: 'Для немовлят доступна лише Bexsero (GSK). З 10 років - Trumenba.',
+            coAdmin: 'Краще розносити з Гексою на 2 тижні.',
+            reactionTimeline: [{ days: 'День 0–2', normal: 'Температура 38.5-39.5, дитина плаче від болю в нозі.', notNormal: 'Температура >40.' }],
+            redFlags: ['Сильна алергія.'],
+            contraindications: 'Алергія.',
+            sources: { official: [{ text: 'UK JCVI guidelines on MenB', url: '#' }], scientific: [{ text: 'EMA EPAR: Bexsero', url: '#' }], pricing: [{ text: 'Прайси (04.2026)', url: '#' }] }
+        },
+        {
+            id: 'menacwy',
+            category: 'recommended',
+            name: 'Менінгокок ACWY',
+            disease: 'Менінгококова інфекція типів A, C, W, Y',
+            type: 'Інактивована (Кон\'югована)',
+            confidence: { benefit: 'Висока', riskNumbers: 'Висока' },
+            coverage: {
+                status: 'Рекомендована (Платно)',
+                state: 'Не забезпечується.',
+                private: 'Приватні клініки.',
+                priceRange: '1500 - 2500 грн / доза',
+                totalCourse: '1500 - 5000 грн (1-2 дози).'
+            },
+            tldr: { verdict: 'Робити перед садком / подорожами', why: 'Захищає від 4 інших штамів блискавичного менінгіту.', mainRisk: 'Біль у місці уколу.' },
+            diseaseRisks: { infection: 'Рідкісна, зростає під час подорожей.', hospitalization: 'Реанімація.', complications: 'Летальність.' },
+            catchUp: { missed: 'В будь-якому віці.', restart: 'Ні.', intervals: 'Часто достатньо 1 дози після 1-2 років.' },
+            individualFactors: [{ factor: 'Подорожі (Єгипет, Аравія)', impact: 'Обов\'язкова.' }],
+            regionalRisk: 'Тип C присутній в Україні.',
+            herdImmunity: { percent: 'Високий', consequence: 'Знижує носійство в популяції.' },
+            protectionDuration: '5-10 років (ревакцинація підліткам).',
+            schedule: 'Залежить від бренду (Nimenrix можна з 6 тижнів).',
+            efficacy: 'Близько 100%.',
+            brandsComparison: 'Nimenrix (Pfizer, з 6 тижнів), Menactra (Sanofi, з 9 місяців). Обидві відмінні.',
+            coAdmin: 'Відмінна сумісність.',
+            reactionTimeline: [{ days: 'День 0-2', normal: 'Помірний біль, температура.', notNormal: 'Анафілаксія.' }],
+            redFlags: ['Алергія.'],
+            contraindications: 'Алергія на компоненти.',
+            sources: { official: [{ text: 'WHO Position Paper', url: '#' }], scientific: [{ text: 'EMA EPAR', url: '#' }], pricing: [{ text: 'Аптеки (04.2026)', url: '#' }] }
+        },
+        {
+            id: 'mmr',
+            category: 'calendar',
+            name: 'КПК (Кір, Паротит, Краснуха)',
+            disease: 'Кір, Епідемічний паротит, Краснуха',
+            type: 'Жива атенуйована',
+            confidence: { benefit: 'Дуже Висока (РКД)', riskNumbers: 'Висока' },
+            coverage: {
+                status: 'Нацкалендар (Обов\'язково)',
+                state: 'Державні поліклініки (Безоплатно).',
+                private: 'Приватні клініки.',
+                priceRange: '1000 - 1500 грн / доза',
+                totalCourse: 'Безоплатно.'
+            },
+            tldr: { verdict: 'Робити обов\'язково', why: 'Кір — найбільш заразний вірус.', mainRisk: 'Висип на 5-14 день.' },
+            diseaseRisks: { infection: 'Майже 100% при контакті.', hospitalization: 'Пневмонія.', complications: 'Енцефаліт (1:1000).' },
+            catchUp: { missed: 'Ввести першу дозу.', restart: 'Ні.', intervals: 'Мінімум 4 тижні.' },
+            individualFactors: [{ factor: 'Імунодефіцит', impact: 'Протипоказання.' }],
+            regionalRisk: 'Циклічні спалахи кору в Україні.',
+            herdImmunity: { percent: '95%', consequence: 'Падіння до 90% = епідемія.' },
+            protectionDuration: 'Пожиттєво.',
+            schedule: '12 місяців + 6 років.',
+            efficacy: '97% (кір).',
+            brandsComparison: 'Priorix (GSK), M-M-R II (MSD). Відмінностей немає.',
+            coAdmin: 'З будь-якою. З іншими ЖИВИМИ - інтервал 4 тижні.',
+            reactionTimeline: [{ days: 'День 5–14', normal: 'Температура, висип.', notNormal: 'Судоми.' }],
+            redFlags: ['Синці (ІТП).'],
+            contraindications: 'Імунодефіцит, вагітність.',
+            sources: { official: [{ text: 'WHO Position Paper', url: '#' }], scientific: [{ text: 'Cochrane: MMR', url: '#' }], pricing: [{ text: 'Прайси (04.2026)', url: '#' }] }
+        },
+        {
+            id: 'varicella',
+            category: 'recommended',
+            name: 'Вітряна віспа (Вітрянка)',
+            disease: 'Вітрянка (і оперізуючий лишай)',
+            type: 'Жива атенуйована',
+            confidence: { benefit: 'Висока', riskNumbers: 'Висока' },
+            coverage: {
+                status: 'Рекомендована (Платно)',
+                state: 'Не забезпечується.',
+                private: 'Аптеки/Клініки.',
+                priceRange: '1300 - 1800 грн / доза',
+                totalCourse: '2600 - 3600 грн (за 2 дози).'
+            },
+            tldr: { verdict: 'Робити', why: 'Вітрянка небезпечна бактеріальними ускладненнями шкіри.', mainRisk: 'Легкий висип.' },
+            diseaseRisks: { infection: 'Дуже високий у садку.', hospitalization: 'При ускладненнях.', complications: 'Суперінфекції шкіри, енцефаліт.' },
+            catchUp: { missed: 'Можна дітям і дорослим.', restart: 'Ні.', intervals: 'Мінімум 6 тижнів.' },
+            individualFactors: [{ factor: 'Дорослі без імунітету', impact: 'Переносять дуже важко.' }],
+            regionalRisk: 'Масова інфекція.',
+            herdImmunity: { percent: '90%', consequence: 'Захищає тих, кому не можна живу вакцину.' },
+            protectionDuration: 'Пожиттєво.',
+            schedule: 'З 12 місяців (2 дози).',
+            efficacy: '98% від тяжких форм.',
+            brandsComparison: 'Varilrix (GSK), Varivax (MSD). Обидві відмінні.',
+            coAdmin: 'В один день з КПК.',
+            reactionTimeline: [{ days: 'Тиждень 1-3', normal: 'Кілька прищиків, температура.', notNormal: 'Сильний висип.' }],
+            redFlags: ['-'],
+            contraindications: 'Імунодефіцити.',
+            sources: { official: [{ text: 'WHO Position Paper', url: '#' }], scientific: [{ text: 'Cochrane: Varicella', url: '#' }], pricing: [{ text: 'Прайси (04.2026)', url: '#' }] }
+        },
+        {
+            id: 'hepa',
+            category: 'recommended',
+            name: 'Гепатит А',
+            disease: 'Гепатит А (Хвороба Боткіна)',
+            type: 'Інактивована',
+            confidence: { benefit: 'Висока', riskNumbers: 'Висока' },
+            coverage: {
+                status: 'Рекомендована (Платно)',
+                state: 'Не забезпечується.',
+                private: 'Аптеки/Клініки.',
+                priceRange: '800 - 1200 грн / доза',
+                totalCourse: '1600 - 2400 грн (за 2 дози).'
+            },
+            tldr: { verdict: 'Робити перед садком', why: 'Хвороба брудних рук, важко вражає печінку.', mainRisk: 'Дуже легка переносимість.' },
+            diseaseRisks: { infection: 'Харчовий шлях.', hospitalization: 'Жовтяниця.', complications: 'Гостра печінкова недостатність (рідко).' },
+            catchUp: { missed: 'В будь-якому віці.', restart: 'Ні.', intervals: 'Між дозами 6-12 місяців.' },
+            individualFactors: [{ factor: 'Садок', impact: 'Місце спалахів.' }],
+            regionalRisk: 'Середній в Україні.',
+            herdImmunity: { percent: 'Н/Д', consequence: '-' },
+            protectionDuration: 'Пожиттєво.',
+            schedule: 'З 12 місяців (2 дози).',
+            efficacy: '~100%.',
+            brandsComparison: 'Havrix (GSK), Avaxim (Sanofi).',
+            coAdmin: 'Відмінна сумісність.',
+            reactionTimeline: [{ days: 'День 0-1', normal: 'Біль у місці уколу.', notNormal: '-' }],
+            redFlags: ['-'],
+            contraindications: 'Алергія.',
+            sources: { official: [{ text: 'WHO Position Paper', url: '#' }], scientific: [{ text: 'Cochrane: HepA', url: '#' }], pricing: [{ text: 'Прайси (04.2026)', url: '#' }] }
+        },
+        {
+            id: 'flu',
+            category: 'recommended',
+            name: 'Грип',
+            disease: 'Вірус Грипу',
+            type: 'Інактивована (Спліт/Субодинична)',
+            confidence: { benefit: 'Помірна (Залежить від сезону)', riskNumbers: 'Висока' },
+            coverage: {
+                status: 'Рекомендована (Платно)',
+                state: 'Не забезпечується (крім медиків).',
+                private: 'Аптеки/Клініки.',
+                priceRange: '400 - 700 грн / доза',
+                totalCourse: 'Щорічно.'
+            },
+            tldr: { verdict: 'Робити щоосені', why: 'Знижує ризик важких вірусних пневмоній.', mainRisk: 'Слабкість 1 день.' },
+            diseaseRisks: { infection: 'Високий.', hospitalization: 'Пневмонії у дітей до 5 років.', complications: 'Летальність у груп ризику.' },
+            catchUp: { missed: '-', restart: '-', intervals: 'Дітям до 9 років, які вакцинуються вперше, потрібно 2 дози з інтервалом 1 міс.' },
+            individualFactors: [{ factor: 'Астма', impact: 'Обов\'язково.' }],
+            regionalRisk: 'Щорічні епідемії.',
+            herdImmunity: { percent: 'Н/Д', consequence: '-' },
+            protectionDuration: '6-8 місяців (штами змінюються).',
+            schedule: 'З 6 місяців щорічно.',
+            efficacy: '40-60% (залежить від збігу штамів).',
+            brandsComparison: 'Vaxigrip Tetra (Sanofi), Influvac Tetra (Abbott), GC Flu. Всі 4-валентні.',
+            coAdmin: 'Відмінна сумісність.',
+            reactionTimeline: [{ days: 'День 0-1', normal: 'Слабкість, ломота, температура.', notNormal: '-' }],
+            redFlags: ['Синдром Гієна-Барре (вкрай рідко).'],
+            contraindications: 'Алергія на компоненти.',
+            sources: { official: [{ text: 'WHO Flu guidelines', url: '#' }], scientific: [{ text: 'Cochrane: Vaccines for preventing influenza', url: '#' }], pricing: [{ text: 'Аптеки (04.2026)', url: '#' }] }
+        }
+    ];
+
+    const riskData = {
+        'measles': {
+            title: 'Ризик Енцефаліту (Запалення мозку)',
+            subtitle: 'Інфекція: Кір | Вакцина: КПК (MMR)',
+            diseaseRisk: 1000, vaccineRisk: 1, 
+            diseaseLabel: 'При захворюванні на кір', vaccineLabel: 'Від вакцини КПК',
+            conclusion: 'Ризик ураження мозку від вірусу кору рівно у 1000 разів вищий, ніж найтяжча реакція від вакцини.'
+        },
+        'diphtheria': {
+            title: 'Ризик летального наслідку',
+            subtitle: 'Інфекція: Дифтерія | Вакцина: АКДП',
+            diseaseRisk: 100000, vaccineRisk: 1, 
+            diseaseLabel: 'Смерть при дифтерії', vaccineLabel: 'Анафілаксія',
+            conclusion: 'Дифтерія вбиває 1 з 10 хворих навіть у сучасних умовах.'
+        },
+        'polio': {
+            title: 'Ризик незворотного паралічу',
+            subtitle: 'Інфекція: Дикий Поліомієліт | Вакцина: ІПВ',
+            diseaseRisk: 5000, vaccineRisk: 0, 
+            diseaseLabel: 'При дикому вірусі', vaccineLabel: 'Від вакцини ІПВ',
+            conclusion: 'Інактивована вакцина (ІПВ) фізично не здатна викликати параліч.'
+        },
+        'rota': {
+            title: 'Ризик тяжкого ураження ШКТ',
+            subtitle: 'Інфекція: Ротавірус | Вакцина: Rotarix',
+            diseaseRisk: 25000, vaccineRisk: 50, 
+            diseaseLabel: 'Госпіталізація (зневоднення)', vaccineLabel: 'Інвагінація',
+            conclusion: 'Ризик інвагінації від вакцини реальний (до 5 на 100 тис.), але ризик потрапити в реанімацію через вірус у сотні разів вищий.'
+        },
+        'hepb': {
+            title: 'Ризик хронізації та раку печінки',
+            subtitle: 'Інфекція: Гепатит В | Вакцина: ВГВ',
+            diseaseRisk: 900000, vaccineRisk: 1, 
+            diseaseLabel: 'Хронізація у немовляти', vaccineLabel: 'Тяжка реакція на вакцину',
+            conclusion: 'Якщо немовля інфікується, ймовірність того, що хвороба стане хронічною (цироз/рак) — 90%.'
+        }
+    };
+
+    let riskChartInstance = null;
+    let currentVaccineId = null;
+
+    // --- UI RENDER LOGIC ---
+    function getConfidenceBadge(conf) {
+        return `<div class="flex flex-wrap gap-2 mb-3"><span class="bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-1 rounded text-xs font-bold shadow-sm">Впевненість у користі: ${conf.benefit}</span><span class="bg-blue-100 text-blue-800 border border-blue-300 px-2 py-1 rounded text-xs font-bold shadow-sm">Дані щодо ризиків: ${conf.riskNumbers}</span></div>`;
+    }
+
+    function renderVaccineList() {
+        const filterVal = document.getElementById('categoryFilter') ? document.getElementById('categoryFilter').value : 'all';
+        const searchVal = document.getElementById('searchInput') ? document.getElementById('searchInput').value.toLowerCase() : '';
+        const listContainer = document.getElementById('vaccineList');
+        if (!listContainer) return;
+        
+        listContainer.innerHTML = '';
+        
+        let filtered = vaccinesData.filter(v => {
+            const matchesSearch = v.name.toLowerCase().includes(searchVal) || v.disease.toLowerCase().includes(searchVal);
+            const matchesFilter = filterVal === 'all' || v.category === filterVal;
+            return matchesSearch && matchesFilter;
+        });
+
+        if (filtered.length === 0) {
+            listContainer.innerHTML = '<div class="p-4 text-sm text-slate-500 text-center">Нічого не знайдено</div>';
+            return;
+        }
+
+        filtered.forEach(v => {
+            const isActive = v.id === currentVaccineId;
+            const badgeClass = v.category === 'calendar' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700';
+            const badgeText = v.category === 'calendar' ? 'Безоплатно' : 'Платно';
+            
+            const card = document.createElement('div');
+            card.className = `vaccine-card p-3 mb-2 rounded-lg bg-white ${isActive ? 'active' : ''}`;
+            card.onclick = () => selectVaccine(v.id);
+            card.innerHTML = `<div class="flex justify-between items-start mb-1"><div class="font-semibold text-slate-800 text-sm w-3/4">${v.name}</div><span class="${badgeClass} text-[10px] font-bold px-1.5 py-0.5 rounded">${badgeText}</span></div><div class="text-xs text-slate-500 truncate" title="${v.disease}">${v.disease}</div>`;
+            listContainer.appendChild(card);
+        });
+        
+        if (filtered.length > 0 && !filtered.find(v => v.id === currentVaccineId)) selectVaccine(filtered[0].id);
+    }
+
+    function renderVaccineDetail(id) {
+        const detailContainer = document.getElementById('vaccineDetail');
+        if (!detailContainer || !id) return;
+        const v = vaccinesData.find(vac => vac.id === id);
+        if (!v) return;
+
+        let indFactorsHtml = v.individualFactors.map(f => `<tr class="border-b border-slate-100 last:border-0"><td class="py-2 pr-3 font-semibold text-slate-700 text-sm align-top whitespace-nowrap">${f.factor}</td><td class="py-2 text-slate-600 text-sm align-top">${f.impact}</td></tr>`).join('');
+        let timelinesHtml = v.reactionTimeline.map(t => `<div class="timeline-item"><p class="font-bold text-slate-800 text-sm">${t.days}</p><p class="text-sm text-slate-600 mt-1"><span class="font-medium text-emerald-700">Норма:</span> ${t.normal}</p><p class="text-sm text-slate-600 mt-1"><span class="font-medium text-amber-600">Не норма:</span> ${t.notNormal}</p></div>`).join('');
+        let sourcesHtml = `<div class="space-y-3"><div><strong class="text-slate-800 block mb-1">Рівень 1. Офіційні (Показання/Календар):</strong><ul class="list-disc pl-5 space-y-1">${v.sources.official.map(s => `<li><a href="${s.url}" class="text-blue-600 hover:underline">${s.text}</a></li>`).join('')}</ul></div><div><strong class="text-slate-800 block mb-1">Рівень 2. Наукові (EBM):</strong><ul class="list-disc pl-5 space-y-1">${v.sources.scientific.map(s => `<li><a href="${s.url}" class="text-blue-600 hover:underline">${s.text}</a></li>`).join('')}</ul></div><div><strong class="text-slate-800 block mb-1">Рівень 3. Дані про ціни:</strong><ul class="list-disc pl-5 space-y-1">${v.sources.pricing.map(s => `<li><a href="${s.url}" class="text-blue-600 hover:underline">${s.text}</a></li>`).join('')}</ul></div></div>`;
+        let priceBlockBg = v.category === 'calendar' ? 'bg-emerald-50/50 border-emerald-200' : 'bg-amber-50/50 border-amber-200';
+        let priceStatusText = v.category === 'calendar' ? '🟢 Входить до Нацкалендаря (Безоплатно)' : '🟡 Рекомендована вакцина (Платно)';
+        
+        const detailHTML = `
+            <div class="animate-fade-in pb-4">
+                <div class="border-b border-slate-200 pb-4 mb-5">
+                    ${getConfidenceBadge(v.confidence)}
+                    <h2 class="text-3xl font-bold text-slate-900 leading-tight">${v.name}</h2>
+                    <p class="text-slate-600 mt-2 font-medium"><span class="font-bold text-slate-800">Захищає від:</span> ${v.disease}</p>
+                </div>
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-xl mb-6 shadow-sm">
+                    <h3 class="font-bold text-blue-900 mb-2 flex items-center">⚡ Швидкий висновок (TL;DR)</h3>
+                    <ul class="text-sm text-blue-800 space-y-2">
+                        <li><span class="font-bold">Рішення:</span> ${v.tldr.verdict}</li>
+                        <li><span class="font-bold">Чому:</span> ${v.tldr.why}</li>
+                        <li><span class="font-bold">Головний ризик:</span> ${v.tldr.mainRisk}</li>
+                    </ul>
+                </div>
+                <div class="border ${priceBlockBg} p-5 rounded-xl mb-6 shadow-sm">
+                    <h3 class="font-bold text-slate-800 text-lg mb-3 flex items-center"><span class="mr-2">💳</span> Вартість і доступність</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-3">
+                        <div><strong class="block text-slate-700">Статус в Україні:</strong><span class="font-bold">${priceStatusText}</span></div>
+                        <div><strong class="block text-slate-700">Де доступно:</strong>${v.coverage.state}<br>${v.coverage.private}</div>
+                    </div>
+                    <div class="bg-white p-3 rounded border border-slate-200 text-sm">
+                        <div class="flex justify-between items-center border-b border-slate-100 pb-2 mb-2">
+                            <span class="text-slate-600 font-bold">Орієнтовна вартість у приватних клініках (1 доза):</span>
+                            <span class="font-mono font-bold text-slate-800">${v.coverage.priceRange}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-600 font-bold">Орієнтовно за весь курс:</span>
+                            <span class="font-mono font-bold text-slate-800">${v.coverage.totalCourse}</span>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-slate-500 mt-2 italic">* Примітка: Ціни наведені орієнтовно за відкритими прайсами клінік (квітень 2026) і можуть змінюватися залежно від міста, бренду, наявності та консультації.</p>
+                </div>
+                <div class="bg-rose-50 border border-rose-200 p-5 rounded-xl mb-6 shadow-sm">
+                    <h3 class="font-bold text-rose-900 text-lg mb-3 flex items-center"><span class="mr-2">🦠</span> Ризики БЕЗ вакцинації</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div><strong class="block text-rose-800 mb-1">Ризик зараження:</strong><span class="text-slate-700">${v.diseaseRisks.infection}</span></div>
+                        <div><strong class="block text-rose-800 mb-1">Госпіталізація:</strong><span class="text-slate-700">${v.diseaseRisks.hospitalization}</span></div>
+                        <div><strong class="block text-rose-800 mb-1">Ускладнення/Смерть:</strong><span class="text-slate-700">${v.diseaseRisks.complications}</span></div>
+                    </div>
+                    <div class="mt-3 pt-3 border-t border-rose-100 text-xs text-rose-700"><strong>Україна/Європа:</strong> ${v.regionalRisk}</div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="bg-white border border-slate-200 p-4 rounded-xl shadow-sm"><p class="text-xs text-slate-500 uppercase tracking-wide font-bold mb-1">Тип вакцини</p><p class="text-sm text-slate-800">${v.type}</p></div>
+                    <div class="bg-white border border-slate-200 p-4 rounded-xl shadow-sm"><p class="text-xs text-slate-500 uppercase tracking-wide font-bold mb-1">Ефективність</p><p class="text-sm font-bold text-emerald-700">${v.efficacy}</p></div>
+                    <div class="md:col-span-2 bg-white border border-slate-200 p-4 rounded-xl shadow-sm"><div class="grid grid-cols-2 gap-4"><div><p class="text-xs text-slate-500 uppercase tracking-wide font-bold mb-1">Графік</p><p class="text-sm font-medium text-slate-800">${v.schedule}</p></div><div><p class="text-xs text-slate-500 uppercase tracking-wide font-bold mb-1">Тривалість захисту</p><p class="text-sm text-slate-800">${v.protectionDuration}</p></div></div></div>
+                    <div class="md:col-span-2 bg-white border border-slate-200 p-4 rounded-xl shadow-sm"><p class="text-xs text-slate-500 uppercase tracking-wide font-bold mb-1">Бренди та відмінності</p><p class="text-sm text-slate-800">${v.brandsComparison}</p></div>
+                </div>
+                <div class="bg-amber-50 border border-amber-200 p-5 rounded-xl mb-6 shadow-sm">
+                    <h3 class="font-bold text-amber-900 mb-3 flex items-center"><span class="mr-2">⏳</span> Якщо пропустили (Catch-up)</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-slate-700">
+                        <div><strong class="block text-amber-800">Що робити:</strong> ${v.catchUp.missed}</div>
+                        <div><strong class="block text-amber-800">Починати заново?</strong> ${v.catchUp.restart}</div>
+                        <div><strong class="block text-amber-800">Інтервали:</strong> ${v.catchUp.intervals}</div>
+                    </div>
+                </div>
+                <div class="mb-6"><h3 class="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-3">Індивідуальні фактори ризику</h3><div class="bg-white border border-slate-200 rounded-xl overflow-hidden"><table class="w-full text-left border-collapse"><tbody class="p-4 block">${indFactorsHtml}</tbody></table></div></div>
+                <div class="mb-6"><h3 class="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">Таймлайн реакцій та Безпека</h3><div class="grid grid-cols-1 lg:grid-cols-2 gap-8"><div>${timelinesHtml}</div><div><div class="bg-red-50 border-l-4 border-red-500 p-4 rounded shadow-sm"><h4 class="font-bold text-red-800 text-sm mb-2">🚩 Червоні прапорці (до лікаря)</h4><ul class="text-sm text-red-900 list-disc pl-5 space-y-1">${v.redFlags.map(rf => `<li>${rf}</li>`).join('')}</ul></div><div class="mt-4 text-sm text-slate-700 bg-slate-100 p-3 rounded"><span class="font-bold block mb-1">Протипоказання:</span> ${v.contraindications}</div></div></div></div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 pt-6 border-t border-slate-200"><div class="text-sm text-slate-600"><span class="font-bold text-slate-800 block mb-1">Колективний імунітет:</span><span class="bg-slate-200 px-2 py-0.5 rounded text-xs font-mono mr-1">${v.herdImmunity.percent}</span> ${v.herdImmunity.consequence}</div><div class="text-sm text-slate-600"><span class="font-bold text-slate-800 block mb-1">Сумісність:</span> ${v.coAdmin}</div></div>
+                <details class="mt-6 bg-white border border-slate-200 rounded-lg group">
+                    <summary class="cursor-pointer font-bold text-sm text-slate-700 p-3 bg-slate-50 hover:bg-slate-100 rounded-lg group-open:rounded-b-none transition-colors">📚 Ієрархія джерел</summary>
+                    <div class="p-4 text-xs text-slate-600 bg-white rounded-b-lg border-t border-slate-200">${sourcesHtml}</div>
+                </details>
+            </div>
+        `;
+        detailContainer.innerHTML = detailHTML;
+    }
+
+    // --- INTERACTIVE PLAN LOGIC ---
+    function generatePlan() {
+        const age = parseInt(document.getElementById('ageSelector').value);
+        const resultDiv = document.getElementById('planResult');
+        let current = [], catchUp = [], important = '';
+        if (age === 0) { current = ['Гепатит В (у пологовому)', 'БЦЖ (у пологовому)', '2 міс: Гексавакцина (1 доза)', '2 міс: Пневмокок (1 доза)', '2 міс: Ротавірус (1 доза)']; important = 'Найважливіше: перша доза Ротавірусу СУВОРО до 15 тижнів життя.'; }
+        else if (age === 2) { current = ['Гексавакцина (1 або 2 доза)', 'Пневмокок (1 або 2 доза)', 'Ротавірус (1 або 2 доза)', 'Менінгокок В (за бажанням)']; catchUp = ['Якщо не робили БЦЖ — звернутися до педіатра.']; important = 'Сформувати базу проти кашлюку та пневмококу.'; }
+        else if (age === 6) { current = ['Гексавакцина (3 доза у 6 міс)', 'Грип (у сезон)']; catchUp = ['Якщо пропустили Ротавірус — РОБИТИ ВЖЕ ПІЗНО.', 'Пневмокок — зробити дозу, якщо пропустили.']; important = 'Захист від кашлюку до садочка має бути сформований.'; }
+        else if (age === 12) { current = ['КПК (Кір-Паротит-Краснуха)', 'Пневмокок - ревакцинація', 'Менінгокок АСWY (бажано)']; catchUp = ['Гексавакцина — продовжити серію.']; important = 'Кір — найзаразніша хвороба. КПК у 1 рік є абсолютним пріоритетом.'; }
+        else if (age === 18) { current = ['Гексавакцина - ревакцинація (4 доза)']; catchUp = ['Якщо не зробили КПК у рік — зробити негайно.']; important = 'Четверта доза кашлюку забезпечує захист до шкільного віку.'; }
+        else if (age === 72) { current = ['КПК - 2 доза', 'АДП-м (Дифтерія/Правець)']; catchUp = ['Перевірити наявність 4 доз від поліомієліту та кашлюку.']; important = 'Держава безоплатно ревакцинує від дифтерії та правця (АДП-м).'; }
+        let html = `<div class="animate-fade-in grid grid-cols-1 gap-6"><div class="bg-blue-50 border border-blue-200 p-5 rounded-xl"><h3 class="font-bold text-blue-900 mb-3 text-lg">📅 Актуально зараз:</h3><ul class="list-disc pl-5 space-y-2 text-blue-800 font-medium">${current.map(item => `<li>${item}</li>`).join('')}</ul></div>`;
+        if (catchUp.length > 0) { html += `<div class="bg-amber-50 border border-amber-200 p-5 rounded-xl"><h3 class="font-bold text-amber-900 mb-3 text-lg">⏳ Якщо пропустили:</h3><ul class="list-disc pl-5 space-y-2 text-amber-800">${catchUp.map(item => `<li>${item}</li>`).join('')}</ul></div>`; }
+        html += `<div class="bg-rose-50 border border-rose-200 p-4 rounded-xl"><strong class="text-rose-900 block mb-1">🎯 Пріоритет віку:</strong> <span class="text-rose-800 text-sm">${important}</span></div></div>`;
+        resultDiv.innerHTML = html;
+        resultDiv.classList.remove('hidden');
+    }
+
+    // --- CHART LOGIC ---
+    function initRiskChart() {
+        const canvas = document.getElementById('riskChart');
+        if(!canvas) return;
+        const ctx = canvas.getContext('2d');
+        riskChartInstance = new Chart(ctx, {
+            type: 'bar', data: { labels: [], datasets: [] },
+            options: {
+                responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+                plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(context) { return context.raw.toLocaleString('uk-UA') + ' на 1,000,000'; } } } },
+                scales: { x: { type: 'logarithmic', title: { display: true, text: 'Випадків на 1 млн. (логарифмічна шкала)' } } }
+            }
+        });
+        updateRiskChart('measles');
+    }
+    function updateRiskChart(diseaseKey) {
+        if (!riskChartInstance) return;
+        const data = riskData[diseaseKey];
+        if(!data) return;
+        document.getElementById('chartTitle').innerText = data.title; document.getElementById('chartSubtitle').innerText = data.subtitle; document.getElementById('chartConclusion').innerText = data.conclusion;
+        const vRiskForChart = data.vaccineRisk === 0 ? 0.1 : data.vaccineRisk;
+        riskChartInstance.data.labels = [data.diseaseLabel, data.vaccineLabel];
+        riskChartInstance.data.datasets = [{ data: [data.diseaseRisk, vRiskForChart], backgroundColor: ['rgba(225, 29, 72, 0.8)', 'rgba(16, 185, 129, 0.8)'], borderColor: ['rgb(190, 18, 60)', 'rgb(4, 120, 87)'], borderWidth: 1, borderRadius: 4 }];
+        riskChartInstance.update();
+    }
+
+    // --- NAVIGATION & INIT ---
+    function switchTab(targetId) {
+        document.querySelectorAll('.tab-btn').forEach(btn => { btn.classList.remove('tab-active'); if(btn.dataset.target === targetId) btn.classList.add('tab-active'); });
+        document.querySelectorAll('.view-section').forEach(section => { section.classList.add('hidden'); section.classList.remove('block'); });
+        const targetSection = document.getElementById(`section-${targetId}`);
+        if(targetSection) { targetSection.classList.remove('hidden'); targetSection.classList.add('block'); }
+        if(targetId === 'stats' && !riskChartInstance) setTimeout(initRiskChart, 50); 
+    }
+    function selectVaccine(id) {
+        currentVaccineId = id;
+        renderVaccineList();
+        renderVaccineDetail(id);
+        if (window.innerWidth < 1024) {
+            const wrap = document.getElementById('vaccineDetailWrapper');
+            if(wrap) wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+    function initApp() {
+        try { renderVaccineList(); } catch (error) { console.error(error); }
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initApp);
+    else initApp();
+
+</script>
+</body>
+</html>
